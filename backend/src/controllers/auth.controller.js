@@ -5,6 +5,7 @@ import { generateToken } from "../lib/utils.js";
 import { sendWelcomeEmail } from "../emails/emailHandlers.js";
 import 'dotenv/config';
 import { ENV } from "../lib/env.js";
+import cloudinary from "../lib/cloudinary.js";
 
 export const signup=async (req,resp)=>{
      const {fullName,email,password} = req.body;
@@ -70,7 +71,11 @@ export const signup=async (req,resp)=>{
 } 
 
 export const login = async (req,resp) => {
-     const {email, password} = req.body
+     const {email, password} = req.body;
+
+     if(!email || !password){
+          return resp.status(400).json({message:"Email and password are required"});
+     }
 
      try {
           const user = await User.findOne({email});
@@ -98,4 +103,25 @@ export const login = async (req,resp) => {
 export const logout = (_, resp) => {
      resp.cookie("jwt", "", {maxAge: 0});
      resp.status(200).json({message:"Logged out successfully"});
+}
+
+export const updateProfile = async (req,resp) => {
+     try {
+          const {profilePic} = req.body;
+          if(!profilePic) return resp.status(400).json({message:"Profile pic is required"});
+
+          const userId = req.user._id;
+
+          const uploadResponse = await cloudinary.uploader.upload(profilePic);
+
+          const updatedUser = await User.findByIdAndUpdate(
+               userId,
+               {profilePic: uploadResponse.secure_url},
+               {new: true}
+          );
+
+     } catch (error) {
+          console.log("Error in update profile:", error);
+          resp.status(500).json({message:"Internal server error"});
+     }
 }
