@@ -16,7 +16,7 @@ export const signup=async (req,resp)=>{
           }
 
           if(password.length < 6){
-               resp.status(400).json({message:"Password must be atleast 6 characters"});
+               return resp.status(400).json({message:"Password must be atleast 6 characters"});
           }
 
           // check if emails valid: regex
@@ -85,9 +85,10 @@ export const login = async (req,resp) => {
           const isPasswordCorrect = await bcrypt.compare(password, user.password);
           if(!isPasswordCorrect) return resp.status(400).json({message:"Invalid credentials"});
 
-          generateToken(user._id,resp);
+          const token = generateToken(user._id,resp);
 
           resp.status(200).json({
+               token,
                _id: user._id,
                fullName:user.fullName,
                email:user.email,
@@ -119,6 +120,8 @@ export const updateProfile = async (req,resp) => {
                {profilePic: uploadResponse.secure_url},
                {new: true}
           );
+
+          return resp.status(200).json(updatedUser);
 
      } catch (error) {
           console.log("Error in update profile:", error);

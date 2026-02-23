@@ -13,7 +13,7 @@ const _dirname = path.resolve();
 const PORT = ENV.PORT || 5000 ;
 
 app.use(e.json()) // req.body
-app.use(cookieParser);
+app.use(cookieParser());
 
 app.use('/api/auth/',authRoutes);
 app.use('/api/message', messageRoutes);
