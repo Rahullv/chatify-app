@@ -37,47 +37,42 @@ export const getMessagesByUserId = async (req, resp) => {
   }
 };
 
-export const sendMessage = async (req,res) => {
-     try {
-          const {text, image} = req.body;
-          const {id: receiverId} = req.params;
-          const senderId = req.user._id;
+export const sendMessage = async (req, res) => {
+  try {
+    const { text, image } = req.body;
+    const { id: receiverId } = req.params;
+    const senderId = req.user._id;
 
-          if(!text && !image) {
-            return res.status(400).json({ message: "Text or image is required."});
-          }
-          if(senderId.equals(receiverId)) {
-            return res.status(400).json({ message: "Cannot send messages to yourself."});
-          }
-          const receiverExists = await User.exists({_id: receiverId});
-          if(!receiverExists) {
-            return res.status(400).json({ message: "Receiver not found."});
-          }
+    if (!text && !image) {
+      return res.status(400).json({ message: "Text or image is required." });
+    }
 
-          let imageUrl;
-          if(image) {
-               // upload base64 image to cloudinary
-               const uploadResponse = await cloudinary.uploader.upload(image);
-               imageUrl = uploadResponse.secure_url;
-          }
+    let imageUrl;
+    if (image) {
+      const uploadResponse = await cloudinary.uploader.upload(image);
+      imageUrl = uploadResponse.secure_url;
+    }
 
-          const newMessage = new Message({
-               senderId,
-               receiverId,
-               text,
-               image: imageUrl,
-          });
+    const newMessage = new Message({
+      senderId,
+      receiverId,
+      text,
+      image: imageUrl,
+    });
 
-          await newMessage.save();
+    await newMessage.save();
 
-          //todo
+    // ⭐ REAL-TIME SOCKET EMIT
+    const receiverSocketId = getReceiverSocketId(receiverId.toString());
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
 
-          res.status(201).json(newMessage);
-          
-     } catch (error) {
-          console.log("Error in sendMessage controller: ", error);
-          res.status(500).json({error: "Internal server error"});
-     }
+    res.status(201).json(newMessage);
+  } catch (error) {
+    console.log("Error in sendMessage controller:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
 
 export const getChatPartner = async (req,res) => {
