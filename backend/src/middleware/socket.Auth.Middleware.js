@@ -1,30 +1,36 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import { ENV } from "../lib/env.js"; 
+import { ENV } from "../lib/env.js";
+import cookie from "cookie";
 
 export const socketAuthMiddleware = async (socket, next) => {
      try {
-          // extract token from http-only cookies
-          const token = socket.handshake.headers.cookie
-          ?.split("; ")
-          .find((row) => row.startsWith("jwt"))
-          ?.split("=")[1];
+          // extract token from cookies using cookie parser
+          const cookies = cookie.parse(socket.handshake.headers.cookie || "");
+          let token = null;
+          if (cookies.jwt) {
+            try {
+              token = decodeURIComponent(cookies.jwt);
+            } catch (error) {
+              if (error instanceof URIError) {
+                console.log("Malformed token detected");
+              } else {
+                throw error;
+              }
+            }
+          }
 
           if(!token) {
-               console.log("Scoket connection rejected: No token provided");
+               console.log("Socket connection rejected: No token provided");
                return next(new Error("Unauthorized - No token provided"));
           }
 
           // verify the token 
-          const decoded = jwt.verify(token, ENV.JWT_SECRET)
-          if(!decoded) {
-               console.log("Scoket connection rejected: Invalid provided");
-               return next(new Error("Unauthorized - Invalid token "));
-          }
+          const decoded = jwt.verify(token, ENV.JWT_SECRET);
 
           const user = await User.findById(decoded.userId).select("-password");
           if(!user) {
-               console.log("Scoket connection rejected: User not found");
+               console.log("Socket connection rejected: User not found");
                return next(new Error("User not found"));
           }
 
@@ -36,7 +42,11 @@ export const socketAuthMiddleware = async (socket, next) => {
           next();
 
      } catch (error) {
+          if (error.name === "JsonWebTokenError" || error.name === "TokenExpiredError") {
+               console.log("Socket connection rejected: Invalid token");
+          } else {
                console.log("Error in Socket authentication: ", error.message);
-               return next(new Error("Unauthorized - Authentication failed"));
+          }
+          return next(new Error("Unauthorized - Authentication failed"));
      }
-}
+};

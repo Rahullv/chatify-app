@@ -1,4 +1,5 @@
-import { useChatStore } from "../store/useChatStore";
+import { useChatStore} from "../store/useChatStore.js";
+import { useAuthStore } from "../store/useAuthStore.js";
 import BorderAnimatedContainer from "../components/BorderAnimatedContainer";
 import ProfileHeader from "../components/ProfileHeader";
 import ActiveTabSwitch from "../components/ActiveTabSwitch";
@@ -9,6 +10,7 @@ import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
 
 function ChatPage() {
   const { activeTab, selectedUser } = useChatStore();
+  const { onlineUsers } = useAuthStore();
 
   return (
     <div className="relative w-full max-w-6xl h-[800px]">
@@ -19,7 +21,11 @@ function ChatPage() {
           <ActiveTabSwitch />
 
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {activeTab === "chats" ? <ChatsList /> : <ContactList />}
+            {activeTab === "chats" ? (
+              <ChatsList onlineUsers={onlineUsers} />
+            ) : (
+              <ContactList onlineUsers={onlineUsers} />
+            )}
           </div>
         </div>
 
