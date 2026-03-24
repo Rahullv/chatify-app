@@ -4,9 +4,7 @@ import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
 const BASE_URL =
-  import.meta.env.MODE === "development"
-    ? "http://localhost:3000"
-    : "/";
+  import.meta.env.MODE === "development" ? "http://localhost:5000" : "/";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -25,8 +23,12 @@ export const useAuthStore = create((set, get) => ({
       // connect socket after auth
       get().connectSocket();
     } catch (error) {
-      console.log("Error in authCheck:", error);
-      set({ authUser: null });
+      if (error.response?.status === 401) {
+        // normal case → user not logged in
+        set({ authUser: null });
+      } else {
+        console.log("Real error:", error);
+      }
     } finally {
       set({ isCheckingAuth: false });
     }
@@ -99,32 +101,39 @@ export const useAuthStore = create((set, get) => ({
   connectSocket: () => {
     const { authUser, socket } = get();
 
-    // prevent duplicate connection
+    // 🚫 Do NOT connect if no user
     if (!authUser?._id) return;
 
-    // if socket already exists, disconnect first (clean reconnect)
-    if (socket) {
-      socket.disconnect();
+    // 🚫 Prevent multiple socket connections (MAIN BUG FIX)
+    if (socket && socket.connected) {
+      console.log("🟡 Socket already connected");
+      return;
     }
 
     const newSocket = io(BASE_URL, {
-      query: {
-        userId: authUser._id, // ⭐ CRITICAL for online users
-      },
-      withCredentials: true,
+      withCredentials: true, // JWT cookie auth
       transports: ["websocket"],
     });
 
+    // ⭐ Save socket immediately
     set({ socket: newSocket });
 
     newSocket.on("connect", () => {
       console.log("✅ Socket connected:", newSocket.id);
     });
 
-    // ⭐ THIS DRIVES THE GREEN ONLINE DOT
     newSocket.on("getOnlineUsers", (userIds) => {
-      console.log("🟢 Online users:", userIds);
-      set({ onlineUsers: userIds });
+      const normalizedIds = (userIds || []).map((id) => id.toString());
+
+      console.log("🟢 Online users from server:", normalizedIds);
+
+      // ⭐ IMPORTANT: update ONLY if changed (prevents flicker)
+      set((state) => {
+        const prev = JSON.stringify(state.onlineUsers);
+        const next = JSON.stringify(normalizedIds);
+        if (prev === next) return state;
+        return { onlineUsers: normalizedIds };
+      });
     });
 
     newSocket.on("disconnect", () => {

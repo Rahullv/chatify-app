@@ -8,13 +8,27 @@ import messageRoutes from "./routes/message-routes.js";
 import { connectDB } from "./lib/db.js";
 import { ENV } from "./lib/env.js";
 import { app, server } from "./lib/socket.js";
+import dns from "dns";
+
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
 
 const __dirname = path.resolve();
 const PORT = ENV.PORT || 5000;
 
 // ⭐ CORS (ONLY ONCE + BEFORE ROUTES)
+const allowedOrigins = (ENV.CORS_ORIGINS || "http://localhost:5173")
+  .split(",")
+  .map(origin => origin.trim())
+  .filter(origin => origin !== "");
 app.use(cors({
-  origin: "http://localhost:5173", // Vite frontend
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
 }));
 
@@ -36,7 +50,14 @@ if (ENV.NODE_ENV === "production") {
 }
 
 // Start server
-server.listen(PORT, () => {
-  console.log("Server is running on port: " + PORT);
-  connectDB();
-});
+(async () => {
+  try {
+    await connectDB();
+    server.listen(PORT, () => {
+      console.log("Server is running on port: " + PORT);
+    });
+  } catch (error) {
+    console.error("Failed to connect to the database:", error);
+    process.exit(1);
+  }
+})();

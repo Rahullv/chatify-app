@@ -7,8 +7,8 @@ import { socketAuthMiddleware } from "../middleware/socket.Auth.Middleware.js";
 const app = express();
 const server = http.createServer(app);
 
-// ⭐ Online users map
-const userSocketMap = {}; // { userId: socketId }
+// Replace userSocketMap with a Map
+const userSocketMap = new Map();
 
 const io = new Server(server, {
   cors: {
@@ -17,35 +17,80 @@ const io = new Server(server, {
   },
 });
 
-// Auth middleware (JWT cookies)
+// JWT cookie auth
 io.use(socketAuthMiddleware);
 
 io.on("connection", (socket) => {
-  const userId = socket.userId;
+  const userId = socket.userId?.toString();
 
   console.log("🟢 User connected:", socket.user?.fullName, userId);
 
   if (userId) {
-    userSocketMap[userId] = socket.id;
+    if (!userSocketMap.has(userId)) {
+      userSocketMap.set(userId, new Set());
+    }
+    userSocketMap.get(userId).add(socket.id);
   }
 
-  // Emit online users to all clients
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+  // ALWAYS emit normalized string IDs
+  const onlineUsers = Array.from(userSocketMap.keys());
+  io.emit("getOnlineUsers", onlineUsers);
 
   socket.on("disconnect", () => {
     console.log("🔴 User disconnected:", socket.user?.fullName);
 
-    if (userId) {
-      delete userSocketMap[userId];
+    if (userId && userSocketMap.has(userId)) {
+      const userSockets = userSocketMap.get(userId);
+      userSockets.delete(socket.id);
+      if (userSockets.size === 0) {
+        userSocketMap.delete(userId);
+      }
     }
 
-    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    const updatedOnlineUsers = Array.from(userSocketMap.keys());
+    io.emit("getOnlineUsers", updatedOnlineUsers);
   });
 });
 
-// ⭐ Export helper (VERY IMPORTANT)
+// helper for real-time messages
 export const getReceiverSocketId = (receiverId) => {
-  return userSocketMap[receiverId];
+  const sockets = userSocketMap.get(receiverId?.toString());
+  return sockets ? Array.from(sockets) : [];
 };
+
+
+
+io.on("connection", (socket) => {
+  const userId = socket.userId?.toString();
+
+  console.log("🟢 User connected:", userId);
+
+  // 🟢 TYPING START
+  socket.on("typing", ({ receiverId }) => {
+    const receiverSockets = getReceiverSocketId(receiverId);
+
+    receiverSockets.forEach((id) => {
+      io.to(id).emit("typing", {
+        senderId: socket.userId,
+      });
+    });
+  });
+
+  // 🟢 TYPING STOP
+  socket.on("stopTyping", ({ receiverId }) => {
+    const receiverSockets = getReceiverSocketId(receiverId);
+
+    receiverSockets.forEach((id) => {
+      io.to(id).emit("stopTyping", {
+        senderId: socket.userId,
+      });
+    });
+  });
+
+  // 🔴 DISCONNECT
+  socket.on("disconnect", () => {
+    console.log("🔴 User disconnected:", userId);
+  });
+});
 
 export { io, app, server };

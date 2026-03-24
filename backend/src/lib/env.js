@@ -15,16 +15,3 @@ export const ENV = {
      ARCJET_ENV:process.env.ARCJET_ENV,
 }
 
-
-// PORT=3000
-// MONGO_URI=mongodb://localhost:27017/
-
-// NODE_ENV=development
-// JWT_SECRET=mmykeyh
-
-// RESEND_API_KEY=re_L8DbRZdr_Q7TpCzduGRPHC6V9Xg6DNRTC
-
-// EMAIL_FROM=onboarding@resend.dev
-// EMAIL_FROM_NAME=Chatify
-
-// CLIENT_URL=http://localhost:5173
