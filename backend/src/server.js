@@ -109,7 +109,7 @@ app.use("/api/messages", messageRoutes);
 // ✅ SERVE FRONTEND (IMPORTANT)
 // =======================
 if (process.env.NODE_ENV === "production") {
-  const frontendPath = path.join(__dirname, "../frontend/dist");
+  const frontendPath = path.join(__dirname, "frontend/dist");
 
   // ✅ serve static files (JS, CSS)
   app.use(express.static(frontendPath));
