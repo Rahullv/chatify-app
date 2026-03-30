@@ -11,8 +11,7 @@ export const useChatStore = create((set, get) => ({
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
-  isSoundEnabled:
-    JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
+  isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
 
   toggleSound: () => {
     const newValue = !get().isSoundEnabled;
@@ -34,9 +33,7 @@ export const useChatStore = create((set, get) => ({
           : res.data.contacts || [],
       });
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message || "Failed to fetch contacts"
-      );
+      toast.error(error?.response?.data?.message || "Failed to fetch contacts");
     } finally {
       set({ isUsersLoading: false });
     }
@@ -48,14 +45,10 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get("/messages/chats");
       set({
-        chats: Array.isArray(res.data)
-          ? res.data
-          : res.data.chats || [],
+        chats: Array.isArray(res.data) ? res.data : res.data.chats || [],
       });
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message || "Failed to fetch chats"
-      );
+      toast.error(error?.response?.data?.message || "Failed to fetch chats");
     } finally {
       set({ isUsersLoading: false });
     }
@@ -76,9 +69,7 @@ export const useChatStore = create((set, get) => ({
 
       set({ messages: safeMessages });
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message || "Failed to fetch messages"
-      );
+      toast.error(error?.response?.data?.message || "Failed to fetch messages");
       set({ messages: [] }); // safety fallback
     } finally {
       set({ isMessagesLoading: false });
@@ -115,7 +106,7 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.post(
         `/messages/send/${selectedUser._id}`,
-        messageData
+        messageData,
       );
 
       const latestMessages = get().messages || [];
@@ -123,7 +114,7 @@ export const useChatStore = create((set, get) => ({
       // Replace optimistic message with real message
       set({
         messages: latestMessages.map((msg) =>
-          msg._id === tempId ? res.data : msg
+          msg._id === tempId ? res.data : msg,
         ),
       });
     } catch (error) {
@@ -133,9 +124,7 @@ export const useChatStore = create((set, get) => ({
         messages: latestMessages.filter((msg) => msg._id !== tempId),
       });
 
-      toast.error(
-        error?.response?.data?.message || "Failed to send message"
-      );
+      toast.error(error?.response?.data?.message || "Failed to send message");
     }
   },
 
@@ -150,24 +139,29 @@ export const useChatStore = create((set, get) => ({
     socket.off("newMessage"); // prevent duplicate listeners
 
     socket.on("newMessage", (newMessage) => {
+      const { authUser } = useAuthStore.getState();
+      const { selectedUser } = get();
+
+      // 🚨 MOST IMPORTANT FIX
+      if (newMessage.senderId === authUser._id) return;
+
       const isFromCurrentChat =
-        newMessage.senderId === selectedUser._id ||
-        newMessage.receiverId === selectedUser._id;
+        newMessage.senderId === selectedUser._id &&
+        newMessage.receiverId === authUser._id;
 
       if (!isFromCurrentChat) return;
 
       const currentMessages = get().messages || [];
 
+      const alreadyExists = currentMessages.some(
+        (msg) => msg._id === newMessage._id,
+      );
+
+      if (alreadyExists) return;
+
       set({
         messages: [...currentMessages, newMessage],
       });
-
-      // 🔔 Play sound if enabled
-      if (isSoundEnabled) {
-        const audio = new Audio("/sounds/notification.mp3");
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      }
     });
   },
 

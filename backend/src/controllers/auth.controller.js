@@ -6,6 +6,7 @@ import { sendWelcomeEmail } from "../emails/emailHandlers.js";
 import 'dotenv/config';
 import { ENV } from "../lib/env.js";
 import cloudinary from "../lib/cloudinary.js";
+import jwt from "jsonwebtoken";
 
 export const signup=async (req,resp)=>{
      const {fullName,email,password} = req.body;
@@ -128,3 +129,30 @@ export const updateProfile = async (req,resp) => {
           resp.status(500).json({message:"Internal server error"});
      }
 }
+
+export const checkAuth = async (req, resp) => {
+     try {
+          const token = req.cookies?.jwt || req.headers.authorization?.split(" ")[1];
+
+          // Not logged in is a normal state: return 200 so the browser
+          // doesn't surface it as a failing request.
+          if (!token) return resp.status(200).json(null);
+
+          let decoded;
+          try {
+               decoded = jwt.verify(token, ENV.JWT_SECRET);
+          } catch {
+               return resp.status(200).json(null);
+          }
+
+          if (!decoded?.userId) return resp.status(200).json(null);
+
+          const user = await User.findById(decoded.userId).select("-password");
+          if (!user) return resp.status(200).json(null);
+
+          return resp.status(200).json(user);
+     } catch (error) {
+          console.error("Error in checkAuth controller:", error);
+          return resp.status(500).json({ message: "Internal server error" });
+     }
+};

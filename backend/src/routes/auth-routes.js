@@ -1,5 +1,5 @@
 import express from 'express'
-import { login, logout, signup, updateProfile, } from '../controllers/auth.controller.js';
+import { checkAuth, login, logout, signup, updateProfile, } from '../controllers/auth.controller.js';
 import { protectRoute } from '../middleware/auth.middlware.js';
 import { arcjetProtection } from '../middleware/arcjet.middleware.js';
 
@@ -19,6 +19,6 @@ router.post("/logout", logout);
 
 router.put("/update-profile", protectRoute, updateProfile);
 
-router.get("/check", protectRoute, (req,resp) => resp.status(200).json(req.user));
+router.get("/check", checkAuth);
 
 export default router;

@@ -71,7 +71,6 @@ import express from "express";
 import path from "path";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-
 import authRoutes from "./routes/auth-routes.js";
 import messageRoutes from "./routes/message-routes.js";
 import { connectDB } from "./lib/db.js";
